@@ -1,116 +1,550 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  drills,
+  patterns,
+  sourceById,
+  sources,
+  timeline,
+  type Drill,
+  type EvidenceSource,
+  type Pattern,
+} from "./behavior-data";
 
-type Source = {
-  year: string;
+type View = "home" | "case" | "sources" | "patterns" | "lab" | "journal" | "method";
+
+type JournalEntry = {
+  id: string;
+  createdAt: string;
   title: string;
-  kind: "财报" | "公司活动" | "采访";
-  publisher: string;
-  official: boolean;
-  transcript: "完整" | "片段" | "待建";
-  archive: string;
-  original: string;
-  note: string;
+  reflection: string;
+  nextAction: string;
 };
 
-const sources: Source[] = [
-  { year: "2023", title: "Tesla Q3 财报电话会", kind: "财报", publisher: "Tesla", official: true, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-q3-2023-earnings-call-2023-10-18", original: "https://www.youtube.com/watch?v=O5aJbvWr4gs", note: "Cybertruck量产、利率与成本" },
-  { year: "2023", title: "Tesla Q1 财报电话会", kind: "财报", publisher: "Tesla", official: true, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-q1-2023-earnings-call-2023-04-19", original: "https://www.youtube.com/watch?v=3MVIWeU36ZY", note: "降价、利润率与Cybertruck时间表" },
-  { year: "2022", title: "Tesla Q3 财报电话会", kind: "财报", publisher: "CNET Highlights", official: false, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-q3-2022-earnings-call-2022-10-19", original: "https://www.youtube.com/watch?v=t0pZPz23T80", note: "利润率、现金流与需求判断" },
-  { year: "2020", title: "Tesla Q3 财报电话会", kind: "财报", publisher: "Solving The Money Problem", official: false, transcript: "完整", archive: "https://elonmuskarchive.org/entry/tesla-q3-2020-earnings-call-2020-10-21", original: "https://www.youtube.com/watch?v=U_Zr-bhHW9A", note: "FSD、产能与工厂扩张" },
-  { year: "2020", title: "Tesla Q2 财报电话会", kind: "财报", publisher: "Solving The Money Problem", official: false, transcript: "完整", archive: "https://elonmuskarchive.org/entry/tesla-q2-2020-earnings-call-2020-07-22", original: "https://www.youtube.com/watch?v=3lvmOJGC_es", note: "Austin工厂、连续盈利与FSD" },
-  { year: "2020", title: "Tesla Q1 财报电话会", kind: "财报", publisher: "Solving The Money Problem", official: false, transcript: "完整", archive: "https://elonmuskarchive.org/entry/tesla-q1-2020-earnings-call-2020-04-29", original: "https://www.youtube.com/watch?v=vEvXfHHEdNc", note: "疫情、停工、盈利与自动驾驶" },
-  { year: "2020", title: "Tesla 2019 Q4 财报电话会", kind: "财报", publisher: "Solving The Money Problem", official: false, transcript: "完整", archive: "https://elonmuskarchive.org/entry/tesla-q4-2019-earnings-call-2020-01-29", original: "https://www.youtube.com/watch?v=LTOetiSVJnc", note: "Cybertruck与2020年展望" },
-  { year: "2018", title: "Tesla Q2 财报电话会", kind: "财报", publisher: "AlphaStreet", official: false, transcript: "完整", archive: "https://elonmuskarchive.org/entry/tesla-q2-2018-earnings-call-2018-08-02", original: "https://www.youtube.com/watch?v=1I9UtyZMTek", note: "Model 3产能、Autopilot与自研芯片" },
-  { year: "2018", title: "Tesla Q1 财报相关节目", kind: "财报", publisher: "HyperChange", official: false, transcript: "片段", archive: "https://elonmuskarchive.org/entry/tesla-q1-2018-earnings-call-2018-05-02", original: "https://www.youtube.com/watch?v=gK3oRIvePJA", note: "包含主持人与评论者，不是完整财报" },
-  { year: "2016", title: "Tesla–SolarCity 收购电话会", kind: "公司活动", publisher: "Electrek", official: false, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-solarcity-acquisition-call-2016-06-22", original: "https://www.youtube.com/watch?v=dm3q5ABMP14", note: "收购理由与能源愿景" },
-  { year: "2019", title: "Tesla Autonomy Day", kind: "公司活动", publisher: "Tesla", official: true, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-autonomy-day-2019", original: "https://www.youtube.com/watch?v=Ucp0TTmvqOE", note: "FSD芯片、神经网络与Robotaxi预测" },
-  { year: "2022", title: "Tesla 股东大会", kind: "公司活动", publisher: "CNET Highlights", official: false, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-shareholder-meeting-2022-08-04", original: "https://www.youtube.com/watch?v=pnXy8c0GOpE", note: "公司更新与股东问答" },
-  { year: "2022", title: "Tesla AI Day", kind: "公司活动", publisher: "Tesla", official: true, transcript: "完整", archive: "https://elonmuskarchive.org/entry/tesla-ai-day-2022", original: "https://www.youtube.com/watch?v=ODSJsviD_SU", note: "Optimus、Dojo与自动驾驶AI" },
-  { year: "2023", title: "Tesla Investor Day", kind: "公司活动", publisher: "Tesla", official: true, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-investor-day-2023-03-01", original: "https://www.youtube.com/watch?v=Hl1zEzVUV7w", note: "Master Plan 3与下一代平台" },
-  { year: "2023", title: "Tesla 股东大会", kind: "公司活动", publisher: "Tesla", official: true, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-shareholder-meeting-2023-05-16", original: "https://www.youtube.com/watch?v=bZNL_8bUz6A", note: "FSD、Cybertruck与公司更新" },
-  { year: "2024", title: "Tesla 股东大会", kind: "公司活动", publisher: "Benzinga", official: false, transcript: "待建", archive: "https://elonmuskarchive.org/entry/tesla-shareholder-meeting-2024-06-13", original: "https://www.youtube.com/watch?v=UQhnxPu67G4", note: "薪酬方案、迁册与AI" },
-  { year: "2025", title: "X Takeover", kind: "公司活动", publisher: "Tesla Owners Silicon Valley", official: false, transcript: "完整", archive: "https://elonmuskarchive.org/entry/x-takeover-2025-musk", original: "https://www.youtube.com/watch?v=YqDehngsBHw", note: "Robotaxi、Optimus与Tesla Semi" },
-  { year: "2025", title: "CNBC David Faber 采访", kind: "采访", publisher: "CNBC", official: true, transcript: "完整", archive: "https://elonmuskarchive.org/entry/cnbc-faber-musk-2025", original: "https://www.cnbc.com/2025/05/20/cnbc-transcript-elon-musk-sits-down-with-cnbcs-david-faber-live-on-cnbc-today-.html", note: "Austin无人驾驶上线前追问" },
-];
+const viewLabels: Record<View, string> = {
+  home: "首页",
+  case: "FSD 案例",
+  sources: "证据库",
+  patterns: "模式库",
+  lab: "训练室",
+  journal: "行动日志",
+  method: "方法",
+};
 
-const timeline = [
-  { year: "2014", type: "概念", title: "Autopilot与完全自动驾驶的边界", body: "早期采访中区分辅助驾驶与完全自主驾驶，作为后续术语变化的基准。", archive: "https://elonmuskarchive.org/entry/interview-with-bloomberg-2014-10-10", original: "https://www.youtube.com/watch?v=Bjq6tXRKfUQ" },
-  { year: "2015", type: "预测", title: "高速公路自动驾驶与时间判断", body: "记录对近期高速公路能力和更长期完全自动驾驶的预测版本。", archive: "https://elonmuskarchive.org/entry/interview-in-denmark-2015-09-15", original: "https://www.youtube.com/watch?v=bl5vLC3Xlgc" },
-  { year: "2018", type: "财报", title: "coast-to-coast延期与自研计算机", body: "把分析师问题、延期解释、硬件主张和后续产品节点连接起来。", archive: "https://elonmuskarchive.org/entry/tesla-q2-2018-earnings-call-2018-08-02", original: "https://www.youtube.com/watch?v=1I9UtyZMTek" },
-  { year: "2019", type: "产品", title: "Autonomy Day与Robotaxi网络", body: "FSD芯片、神经网络、车队学习以及Robotaxi时间预测集中出现。", archive: "https://elonmuskarchive.org/entry/tesla-autonomy-day-2019", original: "https://www.youtube.com/watch?v=Ucp0TTmvqOE" },
-  { year: "2020", type: "产品", title: "FSD Beta与商业模型", body: "有限测试、功能描述、规模预测与Robotaxi商业模式必须分开记录。", archive: "https://elonmuskarchive.org/entry/tesla-q3-2020-earnings-call-2020-10-21", original: "https://www.youtube.com/watch?v=U_Zr-bhHW9A" },
-  { year: "2022", type: "技术", title: "AI Day：数据、训练与Dojo", body: "从产品承诺转向数据闭环、训练基础设施和端到端AI方法。", archive: "https://elonmuskarchive.org/entry/tesla-ai-day-2022", original: "https://www.youtube.com/watch?v=ODSJsviD_SU" },
-  { year: "2023", type: "监管", title: "NHTSA Recall 23V838", body: "驾驶员参与控制与软件补救成为正式监管行动节点。", archive: "https://static.nhtsa.gov/odi/rcl/2023/RCLQRT-23V838-0414.PDF", original: "https://static.nhtsa.gov/odi/rcl/2023/RCLQRT-23V838-0414.PDF" },
-  { year: "2024", type: "产品", title: "We, Robot与Cybercab", body: "现场展示、无监督FSD预测、Cybercab产品与量产时间分别建档。", archive: "https://elonmuskarchive.org/entry/we-robot-robotaxi-reveal-2024-10-10", original: "https://www.youtube.com/watch?v=6v6dbxPlsXs" },
-  { year: "2025", type: "追问", title: "Austin上线前的CNBC追问", body: "保存记者追问、上线条件与马斯克的明确回答。", archive: "https://elonmuskarchive.org/entry/cnbc-faber-musk-2025", original: "https://www.cnbc.com/2025/05/20/cnbc-transcript-elon-musk-sits-down-with-cnbcs-david-faber-live-on-cnbc-today-.html" },
-  { year: "2025", type: "运营", title: "Austin Robotaxi上线声明", body: "本人宣布有限范围服务上线；车辆数量、安全安排与持续运营仍需外部资料核验。", archive: "https://elonmuskarchive.org/posts/1936834688188129503", original: "https://x.com/elonmusk/status/1936834688188129503" },
-];
+function isView(value: string): value is View {
+  return Object.prototype.hasOwnProperty.call(viewLabels, value);
+}
+function isJournalEntry(value: unknown): value is JournalEntry {
+  if (!value || typeof value !== "object") return false;
+  const entry = value as Partial<JournalEntry>;
+  return [entry.id, entry.createdAt, entry.title, entry.reflection, entry.nextAction].every(
+    (field) => typeof field === "string",
+  );
+}
+function sourceLabel(source: EvidenceSource) {
+  return `${source.date} · ${source.category}`;
+}
 
-const cases = [
-  { title: "FSD / Autopilot", years: "2014—2025", state: "首条完整样板", detail: "10个节点 · 8张主张—行动卡规划" },
-  { title: "Twitter 收购", years: "2022", state: "资料装配中", detail: "SEC文件 · 法院短信 · 最终交割" },
-  { title: "Funding secured", years: "2018—2026", state: "骨架完成", detail: "原帖 · SEC证词 · 法院材料" },
-  { title: "竞选与DOGE", years: "2024—2025", state: "待补关键材料", detail: "集会 · 政府记者会 · 离任" },
-];
+function EvidenceBadge({ level }: { level: EvidenceSource["evidenceLevel"] }) {
+  const labels = {
+    S: "S · 原始 / 正式材料",
+    A: "A · 完整采访材料",
+    C: "C · 辅助定位材料",
+  };
 
-export function ResearchApp() {
-  const [query, setQuery] = useState("");
-  const [kind, setKind] = useState("全部");
-  const [timelineType, setTimelineType] = useState("全部");
+  return <span className={`evidence-badge evidence-${level}`}>{labels[level]}</span>;
+}
 
-  const filtered = useMemo(() => sources.filter((source) => {
-    const haystack = `${source.title} ${source.note} ${source.publisher} ${source.year}`.toLowerCase();
-    return (kind === "全部" || source.kind === kind) && haystack.includes(query.toLowerCase());
-  }), [query, kind]);
-
-  const filteredTimeline = timeline.filter((item) => timelineType === "全部" || item.type === timelineType);
+function EvidenceLink({
+  sourceId,
+  onOpen,
+  compact = false,
+}: {
+  sourceId: string;
+  onOpen: (id: string) => void;
+  compact?: boolean;
+}) {
+  const source = sourceById[sourceId];
+  if (!source) return null;
 
   return (
-    <main>
-      <header className="site-header">
-        <a className="brand" href="#top"><span className="brand-mark">M</span><span>马斯克一手言行研究档案</span></a>
-        <nav aria-label="主导航">
-          <a href="#cases">事件档案</a><a href="#fsd">FSD时间线</a><a href="#sources">资料库</a><a href="#method">方法</a>
-        </nav>
-      </header>
+    <button className={compact ? "source-inline" : "source-reference"} onClick={() => onOpen(sourceId)}>
+      <span>{compact ? source.title : "查看证据资料"}</span>
+      {!compact && <small>{sourceLabel(source)}</small>}
+      <span aria-hidden="true">↗</span>
+    </button>
+  );
+}
+function SourceDialog({ source, onClose }: { source: EvidenceSource; onClose: () => void }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-      <section className="hero" id="top">
-        <div className="eyebrow">PRIMARY-SOURCE RESEARCH ARCHIVE</div>
-        <h1>不要只看他说了什么。<br /><span>还要看后来发生了什么。</span></h1>
-        <p className="hero-copy">从原视频、原帖和正式文件出发，把马斯克的公开表达放回真实情境，并与Tesla的产品行动、监管文件和后续结果相互对照。</p>
-        <div className="hero-actions"><a className="button primary" href="#fsd">查看FSD时间线</a><a className="button secondary" href="#sources">浏览18项核验资料</a></div>
-        <div className="metrics" aria-label="网站数据">
-          <div><strong>18</strong><span>Tesla核验资料</span></div><div><strong>10</strong><span>FSD时间节点</span></div><div><strong>65+</strong><span>可追溯外部链接</span></div><div><strong>0</strong><span>登录墙财报入口</span></div>
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    closeButtonRef.current?.focus();
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [onClose]);
+
+  return (
+    <div className="dialog-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="source-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="source-dialog-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-topline">
+          <div className="eyebrow">资料详情 · 可核验证据</div>
+          <button ref={closeButtonRef} className="icon-button" onClick={onClose} aria-label="关闭资料详情">×</button>
+        </div>
+        <div className="source-detail-head">
+          <div>
+            <p>{sourceLabel(source)}</p>
+            <h2 id="source-dialog-title">{source.title}</h2>
+          </div>
+          <EvidenceBadge level={source.evidenceLevel} />
+        </div>
+        <div className="detail-meta-grid">
+          <div><span>发布者</span><strong>{source.publisher}</strong></div>
+          <div><span>材料完整度</span><strong>{source.completeness}</strong></div>
+          <div><span>来源身份</span><strong>{source.official ? "官方或本人来源" : "外部采访 / 媒体来源"}</strong></div>
+          <div><span>主题标签</span><strong>{source.tags.join(" · ")}</strong></div>
+        </div>
+        <div className="detail-section">
+          <h3>当时情境</h3>
+          <p>{source.context}</p>
+        </div>
+        <div className="detail-section emphasis-section">
+          <h3>研究要点</h3>
+          <p>{source.researchNote}</p>
+        </div>
+        <div className="detail-section">
+          <h3>核验提醒</h3>
+          <p>{source.verificationNote}</p>
+        </div>
+        <div className="source-dialog-actions">
+          <a className="button button-dark" href={source.primaryUrl} target="_blank" rel="noreferrer">打开原始来源</a>
+          <a className="button button-light" href={source.archiveUrl} target="_blank" rel="noreferrer">打开备用档案</a>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PatternCard({
+  pattern,
+  onOpenSource,
+  expanded,
+  onToggle,
+}: {
+  pattern: Pattern;
+  onOpenSource: (id: string) => void;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <article className={`pattern-card ${expanded ? "is-expanded" : ""}`}>
+      <div className="pattern-topline"><span>{pattern.number}</span><span>模式假设</span></div>
+      <h3>{pattern.title}</h3>
+      <p>{pattern.summary}</p>
+      <button className="text-button" onClick={onToggle}>{expanded ? "收起分析" : "展开分析"} <span aria-hidden="true">{expanded ? "↑" : "→"}</span></button>
+      {expanded && (
+        <div className="pattern-detail">
+          <div><span>可观察行为</span><p>{pattern.observed}</p></div>
+          <div><span>支持材料</span><div className="inline-source-list">{pattern.supportIds.map((id) => <EvidenceLink key={id} sourceId={id} onOpen={onOpenSource} compact />)}</div></div>
+          <div><span>适用边界</span><p>{pattern.boundary}</p></div>
+          <div className="counter"><span>反证 / 保留项</span><p>{pattern.counterEvidence}</p></div>
+          <div className="practice"><span>小型练习</span><p>{pattern.practice}</p></div>
+        </div>
+      )}
+    </article>
+  );
+}
+
+export function ResearchApp() {
+  const [view, setView] = useState<View>("home");
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [sourceQuery, setSourceQuery] = useState("");
+  const [sourceCategory, setSourceCategory] = useState("全部");
+  const [selectedPatternId, setSelectedPatternId] = useState<string | null>(patterns[0].id);
+  const [selectedDrillId, setSelectedDrillId] = useState(drills[0].id);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [journal, setJournal] = useState<JournalEntry[]>([]);
+  const [journalTitle, setJournalTitle] = useState("");
+  const [journalReflection, setJournalReflection] = useState("");
+  const [journalAction, setJournalAction] = useState("");
+  const [savedMessage, setSavedMessage] = useState("");
+
+  useEffect(() => {
+    const syncView = () => {
+      const candidate = window.location.hash.replace("#", "");
+      if (isView(candidate)) setView(candidate);
+    };
+    syncView();
+    window.addEventListener("hashchange", syncView);
+    return () => window.removeEventListener("hashchange", syncView);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("musk-behavior-lab-journal");
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) setJournal(parsed.filter(isJournalEntry));
+      }
+    } catch {
+      // Local storage may be unavailable in private browser contexts.
+    }
+  }, []);
+
+  const navigate = (nextView: View) => {
+    setView(nextView);
+    if (typeof window !== "undefined") {
+      window.location.hash = nextView;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const openSource = (id: string) => setSelectedSourceId(id);
+  const selectedSource = selectedSourceId ? sourceById[selectedSourceId] : undefined;
+  const selectedDrill = drills.find((drill) => drill.id === selectedDrillId) ?? drills[0];
+
+  const filteredSources = useMemo(() => {
+    const query = sourceQuery.trim().toLowerCase();
+    return sources.filter((source) => {
+      const matchesCategory = sourceCategory === "全部" || source.category === sourceCategory;
+      const haystack = `${source.title} ${source.publisher} ${source.tags.join(" ")} ${source.researchNote}`.toLowerCase();
+      return matchesCategory && (!query || haystack.includes(query));
+    });
+  }, [sourceCategory, sourceQuery]);
+
+  const saveJournal = (entry: JournalEntry) => {
+    const nextEntries = [entry, ...journal];
+    setJournal(nextEntries);
+    try {
+      window.localStorage.setItem("musk-behavior-lab-journal", JSON.stringify(nextEntries));
+      setSavedMessage("已保存到这台设备的行动日志。");
+    } catch {
+      setSavedMessage("此浏览器无法保存本地日志；你仍可以复制这段内容。 ");
+    }
+  };
+
+  const saveDrillToJournal = () => {
+    const pattern = patterns.find((item) => item.id === selectedDrill.patternId);
+    const answer = answers[selectedDrill.id]?.trim() || "尚未填写初步回应。";
+    saveJournal({
+      id: `${selectedDrill.id}-${Date.now()}`,
+      createdAt: new Date().toLocaleDateString("zh-CN"),
+      title: `训练：${selectedDrill.title}`,
+      reflection: answer,
+      nextAction: pattern ? pattern.practice : selectedDrill.nextExperiment,
+    });
+  };
+
+  const saveManualJournal = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!journalTitle.trim() || !journalReflection.trim() || !journalAction.trim()) {
+      setSavedMessage("请补全标题、复盘和下一步行动后再保存。 ");
+      return;
+    }
+    saveJournal({
+      id: `manual-${Date.now()}`,
+      createdAt: new Date().toLocaleDateString("zh-CN"),
+      title: journalTitle.trim(),
+      reflection: journalReflection.trim(),
+      nextAction: journalAction.trim(),
+    });
+    setJournalTitle("");
+    setJournalReflection("");
+    setJournalAction("");
+  };
+
+  const renderHome = () => (
+    <>
+      <section className="hero lab-hero">
+        <div className="hero-copy-column">
+          <div className="eyebrow">EVIDENCE-BASED BEHAVIOR LAB</div>
+          <p className="hero-kicker">研究公开行为，练习自己的判断。</p>
+          <h1>不是复刻一个人。<span>而是把可验证的行为方式，变成你的行动能力。</span></h1>
+          <p className="hero-copy">从原视频、公开帖子、正式文件和后续结果出发，观察马斯克在技术不确定、公开压力与高目标场景中的决策与沟通方式。每一层都保留证据、反例与未知项。</p>
+          <div className="hero-actions">
+            <button className="button button-dark" onClick={() => navigate("case")}>进入 FSD 行为案例</button>
+            <button className="button button-light" onClick={() => navigate("lab")}>开始一次情景训练</button>
+          </div>
+        </div>
+        <aside className="hero-compass" aria-label="研究闭环">
+          <p>学习闭环</p>
+          <ol>
+            <li><span>01</span><div><strong>证据</strong><small>回到原始材料</small></div></li>
+            <li><span>02</span><div><strong>案例</strong><small>放回真实情境</small></div></li>
+            <li><span>03</span><div><strong>模式</strong><small>保留反例与边界</small></div></li>
+            <li><span>04</span><div><strong>训练</strong><small>转化为自己的行动</small></div></li>
+          </ol>
+        </aside>
+      </section>
+
+      <section className="page-section home-overview">
+        <div className="section-intro">
+          <div><span className="index">01</span><h2>从资料导航，升级为行为学习系统</h2></div>
+          <p>网站不替你判断“他真实是什么样的人”。它只呈现可追溯的公开行为，并帮助你检验：什么策略有效、什么代价不可忽略、什么根本无法判断。</p>
+        </div>
+        <div className="layer-grid">
+          <article><span className="layer-number">01</span><h3>证据层</h3><p>12 条已建档材料，原始来源优先，备用档案保留。</p><button onClick={() => navigate("sources")}>浏览证据库 →</button></article>
+          <article><span className="layer-number">02</span><h3>行为层</h3><p>FSD 案例把情境、主张、行动与后果放在一起。</p><button onClick={() => navigate("case")}>阅读 FSD 案例 →</button></article>
+          <article><span className="layer-number">03</span><h3>模式层</h3><p>四张模式卡同时呈现支持材料、反证与适用边界。</p><button onClick={() => navigate("patterns")}>查看模式库 →</button></article>
+          <article><span className="layer-number">04</span><h3>训练层</h3><p>四个真实压力情境，帮助你形成自己的回应方式。</p><button onClick={() => navigate("lab")}>进入训练室 →</button></article>
         </div>
       </section>
 
-      <section className="section" id="cases">
-        <div className="section-heading"><div><span className="index">01</span><h2>从事件开始研究</h2></div><p>资料不是孤立链接。每个事件把本人表态、正式文件、公司行动和结果串成证据链。</p></div>
-        <div className="case-grid">{cases.map((item) => <article className="case-card" key={item.title}><div className="case-top"><span>{item.years}</span><span className="state">{item.state}</span></div><h3>{item.title}</h3><p>{item.detail}</p><span className="case-link">进入事件档案 →</span></article>)}</div>
+      <section className="page-section featured-case-section">
+        <div className="featured-case-copy">
+          <span className="index">首条完整样板</span>
+          <h2>FSD / Autopilot：<br />当公开预测遇到产品、监管与运营现实。</h2>
+          <p>从早期概念、时间判断、Autonomy Day、Beta、监管文件，到 Austin 运营节点。不是判断谁对谁错，而是追踪公开表达与可观察行动如何相互关联。</p>
+          <button className="button button-cream" onClick={() => navigate("case")}>研究这个案例</button>
+        </div>
+        <div className="featured-case-stats">
+          <div><strong>10</strong><span>时间节点</span></div>
+          <div><strong>12</strong><span>可核验资料</span></div>
+          <div><strong>4</strong><span>行为模式</span></div>
+          <div><strong>4</strong><span>训练情境</span></div>
+        </div>
       </section>
 
-      <section className="section fsd-section" id="fsd">
-        <div className="section-heading"><div><span className="index">02</span><h2>FSD / Autopilot主题时间线</h2></div><p>从概念定义到有限范围运营，分别查看预测、产品阶段、监管动作和实际结果。</p></div>
-        <div className="filter-row" role="group" aria-label="时间线筛选">{["全部", "概念", "预测", "财报", "产品", "技术", "监管", "追问", "运营"].map((item) => <button className={timelineType === item ? "active" : ""} key={item} onClick={() => setTimelineType(item)}>{item}</button>)}</div>
-        <div className="timeline">{filteredTimeline.map((item) => <article className="timeline-item" key={`${item.year}-${item.title}`}><div className="timeline-year">{item.year}</div><div className="timeline-dot" /><div className="timeline-content"><span className={`type type-${item.type}`}>{item.type}</span><h3>{item.title}</h3><p>{item.body}</p><div className="source-actions"><a href={item.archive} target="_blank" rel="noreferrer">档案/文件</a><a href={item.original} target="_blank" rel="noreferrer">原始来源 ↗</a></div></div></article>)}</div>
+      <section className="page-section principles-section">
+        <div className="section-intro compact-intro"><div><span className="index">研究原则</span><h2>先看证据，再谈模式。</h2></div></div>
+        <div className="principle-row">
+          <div><strong>事实</strong><p>原视频、原帖、正式文件和可复查时间节点。</p></div>
+          <div><strong>推断</strong><p>从多个案例中归纳出的可观察策略，不能当作内心动机。</p></div>
+          <div><strong>未知</strong><p>资料不足、因果不明或仍在发展中的结果，明确保留。</p></div>
+        </div>
+      </section>
+    </>
+  );
+
+  const renderCase = () => (
+    <>
+      <section className="case-hero">
+        <div>
+          <button className="back-button" onClick={() => navigate("home")}>← 返回学习首页</button>
+          <div className="eyebrow">行为案例 · 01 / 完整样板</div>
+          <h1>FSD / Autopilot</h1>
+          <p className="case-hero-question">研究问题：当技术目标、公开时间判断、监管约束与实际交付发生冲突时，公开表达与后续行动如何相互关联？</p>
+          <div className="case-tag-row"><span>2014—2025</span><span>10 个节点</span><span>12 条材料</span><span>结果持续更新</span></div>
+        </div>
+        <aside className="case-side-note"><span>阅读方式</span><ol><li>先看材料</li><li>再看行为观察</li><li>最后比较模式与边界</li></ol></aside>
       </section>
 
-      <section className="section" id="sources">
-        <div className="section-heading"><div><span className="index">03</span><h2>Tesla公司沟通资料库</h2></div><p>每项资料都区分发布者、官方身份、转录状态和原始平台。</p></div>
-        <div className="library-tools"><label className="search"><span>搜索</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="FSD、Cybertruck、利润率……" /></label><div className="tabs">{["全部", "财报", "公司活动", "采访"].map((item) => <button className={kind === item ? "active" : ""} key={item} onClick={() => setKind(item)}>{item}</button>)}</div></div>
-        <div className="results-count">显示 {filtered.length} / {sources.length} 项资料</div>
-        <div className="source-grid">{filtered.map((source) => <article className="source-card" key={`${source.year}-${source.title}`}><div className="source-meta"><span>{source.year} · {source.kind}</span><span className={source.official ? "official" : "third-party"}>{source.official ? "官方发布" : "第三方发布"}</span></div><h3>{source.title}</h3><p>{source.note}</p><dl><div><dt>发布者</dt><dd>{source.publisher}</dd></div><div><dt>转录</dt><dd className={`transcript transcript-${source.transcript}`}>{source.transcript === "完整" ? "接近完整" : source.transcript}</dd></div></dl><div className="source-actions"><a href={source.archive} target="_blank" rel="noreferrer">直接阅读</a><a href={source.original} target="_blank" rel="noreferrer">原始平台 ↗</a></div></article>)}</div>
+      <section className="page-section case-intro-grid">
+        <article className="research-question"><span>案例摘要</span><h2>不要把公开预测、技术展示、产品测试和运营结果当成同一件事。</h2><p>本案例把它们拆开记录。这样既能看见长期愿景如何被表达，也能看见哪些信息仍需要监管、产品和运营材料来补充。</p></article>
+        <article className="uncertainty-card"><span>必须保留的未知</span><p>公开资料只能显示发言、行动和可观察结果；它不能证明某个判断背后的私人动机，也不能用单一事件概括一个人的全部行为方式。</p></article>
       </section>
 
-      <section className="section method-section" id="method">
-        <div className="section-heading"><div><span className="index">04</span><h2>如何判断一条资料可信</h2></div><p>网站提供证据，不替用户自动判定动机。</p></div>
-        <div className="method-grid"><article><span>S</span><h3>原始证据</h3><p>本人账号、公司官方频道、监管与法院正式文件。</p></article><article><span>A</span><h3>完整采访</h3><p>采访制作方发布的完整原片或完整音频。</p></article><article><span>C</span><h3>辅助定位</h3><p>第三方档案、自动转录和镜像；关键引文必须回查。</p></article><article><span>?</span><h3>保留未知</h3><p>无法确认的结果明确标记，不把推测包装成结论。</p></article></div>
-        <div className="notice"><strong>独立研究项目</strong><p>本站与Elon Musk、Tesla及Elon Musk Archive无隶属关系。外部视频、文字与商标归各自权利人所有；本站仅提供研究导航、短引和来源关系。</p></div>
+      <section className="page-section">
+        <div className="section-intro"><div><span className="index">证据时间线</span><h2>情境—观察—行动—结果</h2></div><p>每一项都链接到可阅读的资料详情。时间线不是结论，它是让读者自行比对的证据框架。</p></div>
+        <div className="evidence-timeline">
+          {timeline.map((item) => {
+            const source = sourceById[item.sourceId];
+            return (
+              <article className="evidence-event" key={item.id}>
+                <div className="timeline-date"><strong>{item.year}</strong><span>{item.type}</span></div>
+                <div className="timeline-rail" />
+                <div className="event-body">
+                  <div className="event-title-line"><h3>{item.title}</h3><span className={`certainty certainty-${item.certainty}`}>{item.certainty}</span></div>
+                  <p className="event-context">{item.context}</p>
+                  <div className="claim-action-grid">
+                    <div><span>可观察行为</span><p>{item.observation}</p></div>
+                    <div><span>后续行动</span><p>{item.action}</p></div>
+                    <div><span>可观察结果</span><p>{item.outcome}</p></div>
+                  </div>
+                  {source && <EvidenceLink sourceId={source.id} onOpen={openSource} />}
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
-      <footer><div className="brand footer-brand"><span className="brand-mark">M</span><span>马斯克一手言行研究档案</span></div><p>从事件出发，回到原始证据。</p><a href="#top">返回顶部 ↑</a></footer>
+      <section className="page-section case-pattern-section">
+        <div className="section-intro"><div><span className="index">模式假设</span><h2>从案例中能学什么？</h2></div><p>以下内容是研究假设，不是人格诊断。每张卡都要同时阅读支持材料、反证和适用边界。</p></div>
+        <div className="case-pattern-grid">
+          {patterns.map((pattern) => <PatternCard key={pattern.id} pattern={pattern} onOpenSource={openSource} expanded={selectedPatternId === pattern.id} onToggle={() => setSelectedPatternId(selectedPatternId === pattern.id ? null : pattern.id)} />)}
+        </div>
+        <button className="button button-dark" onClick={() => navigate("lab")}>把一个模式带入训练 →</button>
+      </section>
+    </>
+  );
+
+  const renderSources = () => {
+    const categories = ["全部", "采访", "财报电话会", "公司活动", "监管文件", "公开帖子"];
+    return (
+      <>
+        <section className="page-heading evidence-library-heading">
+          <div><div className="eyebrow">EVIDENCE LIBRARY</div><h1>证据库</h1><p>每条资料都明确标记来源身份、完整度、研究用途和核验提醒。原始来源优先，档案链接仅作备用入口。</p></div>
+          <div className="library-total"><strong>{sources.length}</strong><span>已建档资料</span></div>
+        </section>
+        <section className="page-section source-library-section">
+          <div className="library-controls">
+            <label className="search-field"><span>搜索资料</span><input value={sourceQuery} onChange={(event) => setSourceQuery(event.target.value)} placeholder="FSD、监管、财报、Robotaxi……" /></label>
+            <div className="filter-pills" role="group" aria-label="资料分类筛选">
+              {categories.map((category) => <button key={category} className={sourceCategory === category ? "is-active" : ""} onClick={() => setSourceCategory(category)}>{category}</button>)}
+            </div>
+          </div>
+          <p className="result-count">显示 {filteredSources.length} / {sources.length} 条资料</p>
+          <div className="source-card-grid">
+            {filteredSources.map((source) => (
+              <article className="evidence-card" key={source.id}>
+                <div className="evidence-card-top"><span>{sourceLabel(source)}</span><EvidenceBadge level={source.evidenceLevel} /></div>
+                <h2>{source.title}</h2>
+                <p>{source.researchNote}</p>
+                <div className="source-card-meta"><span>{source.official ? "官方或本人来源" : "外部采访 / 媒体来源"}</span><span>{source.completeness}</span></div>
+                <div className="card-actions"><button className="text-button" onClick={() => openSource(source.id)}>资料详情 →</button><a href={source.primaryUrl} target="_blank" rel="noreferrer">原始来源 ↗</a></div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </>
+    );
+  };
+
+  const renderPatterns = () => (
+    <>
+      <section className="page-heading pattern-heading">
+        <div><div className="eyebrow">PATTERN LIBRARY</div><h1>行为模式库</h1><p>模式不是“马斯克人格标签”。它们是从多条公开材料中提出的、可被反证的行为假设。</p></div>
+        <div className="heading-aside"><strong>4</strong><span>可检验的模式假设</span></div>
+      </section>
+      <section className="page-section">
+        <div className="pattern-library-grid">
+          {patterns.map((pattern) => <PatternCard key={pattern.id} pattern={pattern} onOpenSource={openSource} expanded={selectedPatternId === pattern.id} onToggle={() => setSelectedPatternId(selectedPatternId === pattern.id ? null : pattern.id)} />)}
+        </div>
+      </section>
+    </>
+  );
+
+  const renderLab = () => {
+    const relatedPattern = patterns.find((pattern) => pattern.id === selectedDrill.patternId);
+    const isRevealed = Boolean(revealed[selectedDrill.id]);
+    return (
+      <>
+        <section className="page-heading lab-heading">
+          <div><div className="eyebrow">DECISION PRACTICE LAB</div><h1>情景训练室</h1><p>先写出你自己的回应，再阅读案例的对照轴。这里不计算“你有多像马斯克”，只帮助你检查证据、机制、风险和下一步。</p></div>
+          <div className="lab-rule"><strong>先回答</strong><span>再看证据</span></div>
+        </section>
+        <section className="page-section lab-layout">
+          <aside className="drill-list" aria-label="训练场景">
+            <p>选择情境</p>
+            {drills.map((drill, index) => <button key={drill.id} className={drill.id === selectedDrill.id ? "is-active" : ""} onClick={() => { setSelectedDrillId(drill.id); setSavedMessage(""); }}><span>{String(index + 1).padStart(2, "0")}</span><strong>{drill.title}</strong></button>)}
+          </aside>
+          <div className="drill-workspace">
+            <div className="drill-label">训练情境</div>
+            <h2>{selectedDrill.title}</h2>
+            <p className="drill-situation">{selectedDrill.situation}</p>
+            <div className="drill-prompt"><span>你的任务</span><p>{selectedDrill.prompt}</p></div>
+            <label className="answer-field"><span>先写下你的初步回应</span><textarea value={answers[selectedDrill.id] ?? ""} onChange={(event) => setAnswers({ ...answers, [selectedDrill.id]: event.target.value })} placeholder="不需要模仿任何人。请写事实、判断、风险和下一步。" rows={7} /></label>
+            <div className="drill-actions"><button className="button button-dark" onClick={() => setRevealed({ ...revealed, [selectedDrill.id]: true })}>查看对照轴</button><button className="button button-light" onClick={saveDrillToJournal}>保存到行动日志</button></div>
+            {isRevealed && relatedPattern && (
+              <section className="drill-feedback">
+                <div><span>相关模式</span><h3>{relatedPattern.shortTitle}</h3><p>{relatedPattern.summary}</p></div>
+                <div><span>检查问题</span><ul>{selectedDrill.lenses.map((lens) => <li key={lens}>{lens}</li>)}</ul></div>
+                <div><span>下一次小实验</span><p>{selectedDrill.nextExperiment}</p></div>
+                <div className="feedback-sources"><span>回到案例材料</span>{relatedPattern.supportIds.map((sourceId) => <EvidenceLink key={sourceId} sourceId={sourceId} onOpen={openSource} compact />)}</div>
+              </section>
+            )}
+            {savedMessage && <p className="saved-message" role="status">{savedMessage}</p>}
+          </div>
+        </section>
+      </>
+    );
+  };
+
+  const renderJournal = () => (
+    <>
+      <section className="page-heading journal-heading">
+        <div><div className="eyebrow">PERSONAL ACTION LOG</div><h1>我的行动日志</h1><p>你的复盘保存在当前浏览器这台设备中。它记录你从案例中选择了什么、实践了什么、下一步要验证什么。</p></div>
+        <div className="heading-aside"><strong>{journal.length}</strong><span>本机保存的记录</span></div>
+      </section>
+      <section className="page-section journal-layout">
+        <form className="journal-form" onSubmit={saveManualJournal}>
+          <span className="form-eyebrow">新增一条复盘</span>
+          <label><span>标题</span><input value={journalTitle} onChange={(event) => setJournalTitle(event.target.value)} placeholder="例如：延期沟通的第一次实践" /></label>
+          <label><span>我观察到 / 我选择了什么</span><textarea value={journalReflection} onChange={(event) => setJournalReflection(event.target.value)} rows={5} placeholder="写下事实、你的判断，以及结果。" /></label>
+          <label><span>下一步可验证行动</span><input value={journalAction} onChange={(event) => setJournalAction(event.target.value)} placeholder="例如：周五前把新里程碑拆成三项可验证假设" /></label>
+          <button className="button button-dark" type="submit">保存这条复盘</button>
+          {savedMessage && <p className="saved-message" role="status">{savedMessage}</p>}
+        </form>
+        <div className="journal-entries">
+          <div className="journal-list-heading"><span>已有记录</span><small>不会上传到服务器</small></div>
+          {journal.length === 0 ? <div className="empty-journal"><strong>还没有记录</strong><p>完成一次训练，或手动写下你正在验证的行动方式。</p><button className="text-button" onClick={() => navigate("lab")}>去训练室 →</button></div> : journal.map((entry) => <article className="journal-entry" key={entry.id}><div><span>{entry.createdAt}</span><h2>{entry.title}</h2></div><p>{entry.reflection}</p><div className="journal-next"><span>下一步</span><strong>{entry.nextAction}</strong></div></article>)}
+        </div>
+      </section>
+    </>
+  );
+
+  const renderMethod = () => (
+    <>
+      <section className="page-heading method-heading">
+        <div><div className="eyebrow">METHOD & BOUNDARIES</div><h1>方法与边界</h1><p>这个项目研究的是公开可观察行为，不诊断人格、不推测私人动机，也不把单条材料包装成结论。</p></div>
+      </section>
+      <section className="page-section">
+        <div className="method-rule-grid">
+          <article><span>F</span><h2>事实</h2><p>可回到原始视频、帖子、正式文件或明确时间节点的内容。</p><small>页面应给出来源、日期、发布者和可访问链接。</small></article>
+          <article><span>I</span><h2>推断</h2><p>基于多条事实提出的行为模式假设，必须说明支持材料与反证。</p><small>推断不是动机，不等于内在人格结论。</small></article>
+          <article><span>?</span><h2>未知</h2><p>资料不足、因果不清或仍在发展的结果，必须显式保留。</p><small>“不知道”是研究质量的一部分。</small></article>
+        </div>
+        <div className="evidence-levels">
+          <div><EvidenceBadge level="S" /><p>本人账号、公司正式渠道、监管或法院文件。</p></div>
+          <div><EvidenceBadge level="A" /><p>采访制作方发布的完整视频、音频或文字稿。</p></div>
+          <div><EvidenceBadge level="C" /><p>第三方档案、镜像或自动转录，仅用于定位和辅助核验。</p></div>
+        </div>
+        <div className="method-notice"><strong>本网站的承诺</strong><p>不把公开材料变成“人格神话”。每条模式都应能被反驳；每个训练都应帮助你形成自己的判断，而非模仿某个人的语气或身份。</p></div>
+      </section>
+    </>
+  );
+
+  const content = {
+    home: renderHome,
+    case: renderCase,
+    sources: renderSources,
+    patterns: renderPatterns,
+    lab: renderLab,
+    journal: renderJournal,
+    method: renderMethod,
+  }[view]();
+
+  return (
+    <main className="app-shell">
+      <header className="site-header">
+        <button className="brand" onClick={() => navigate("home")} aria-label="返回行为学习实验室首页"><span className="brand-mark">M</span><span>马斯克行为学习实验室</span></button>
+        <nav aria-label="主导航">
+          <button className={view === "case" ? "is-current" : ""} onClick={() => navigate("case")}>案例</button>
+          <button className={view === "sources" ? "is-current" : ""} onClick={() => navigate("sources")}>证据库</button>
+          <button className={view === "patterns" ? "is-current" : ""} onClick={() => navigate("patterns")}>模式库</button>
+          <button className={view === "lab" ? "is-current" : ""} onClick={() => navigate("lab")}>训练室</button>
+          <button className={view === "journal" ? "is-current" : ""} onClick={() => navigate("journal")}>行动日志</button>
+          <button className={view === "method" ? "is-current" : ""} onClick={() => navigate("method")}>方法</button>
+        </nav>
+        <button className="header-cta" onClick={() => navigate("lab")}>开始训练</button>
+      </header>
+
+      {content}
+
+      <footer>
+        <button className="brand footer-brand" onClick={() => navigate("home")}><span className="brand-mark">M</span><span>马斯克行为学习实验室</span></button>
+        <p>基于公开资料的行为研究与个人行动练习。</p>
+        <button className="footer-link" onClick={() => navigate("method")}>阅读方法与边界 →</button>
+      </footer>
+
+      {selectedSource && <SourceDialog source={selectedSource} onClose={() => setSelectedSourceId(null)} />}
     </main>
   );
 }
