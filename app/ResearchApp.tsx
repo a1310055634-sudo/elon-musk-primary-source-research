@@ -137,13 +137,24 @@ export function ResearchApp() {
   const [stableOnly, setStableOnly] = useState(false);
 
   useEffect(() => {
-    const syncView = () => {
+    const syncLocation = () => {
       const candidate = window.location.hash.replace("#", "");
       if (isView(candidate)) setView(candidate);
+      const sourceId = new URLSearchParams(window.location.search).get("source");
+      if (sourceId && sourceById[sourceId]) {
+        setSelectedSourceId(sourceId);
+        if (!isView(candidate)) setView("sources");
+      } else {
+        setSelectedSourceId(null);
+      }
     };
-    syncView();
-    window.addEventListener("hashchange", syncView);
-    return () => window.removeEventListener("hashchange", syncView);
+    syncLocation();
+    window.addEventListener("hashchange", syncLocation);
+    window.addEventListener("popstate", syncLocation);
+    return () => {
+      window.removeEventListener("hashchange", syncLocation);
+      window.removeEventListener("popstate", syncLocation);
+    };
   }, []);
 
   const navigate = (nextView: View) => {
@@ -159,6 +170,24 @@ export function ResearchApp() {
     setRoleFilter(nextRole);
     setStableOnly(false);
     navigate("sources");
+  };
+
+  const openSource = (sourceId: string) => {
+    setSelectedSourceId(sourceId);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("source", sourceId);
+      window.history.pushState({}, "", url);
+    }
+  };
+
+  const closeSource = () => {
+    setSelectedSourceId(null);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("source");
+      window.history.pushState({}, "", url);
+    }
   };
 
   const selectedSource = selectedSourceId ? sourceById[selectedSourceId] : undefined;
@@ -193,16 +222,22 @@ export function ResearchApp() {
           </div>
           <p className="hero-microcopy">优先提供无需登录的公开直达链接；YouTube 等平台可能因地区或 Cookie 提示受限，会在资料卡中如实标明。</p>
         </div>
-        <aside className="archive-ledger" aria-label="资料库概览">
-          <div className="ledger-topline"><span>ARCHIVE STATUS</span><strong>持续扩充</strong></div>
-          <div className="ledger-total"><strong>{sources.length}</strong><span>已建档可点击资料</span></div>
-          <div className="ledger-metrics">
-            <div><strong>{directSourceCount}</strong><span>本人直接材料</span></div>
-            <div><strong>{actionRecordCount}</strong><span>行动 / 法律记录</span></div>
-            <div><strong>{stableSourceCount}</strong><span>稳定直达入口</span></div>
-          </div>
-          <div className="ledger-rule"><span>分层规则</span><p>“马斯克说过”与“他所领导的公司做过”永远不混为同一类证据。</p></div>
-        </aside>
+        <div className="archive-hero-side">
+          <figure className="archive-cover">
+            <img src="/og-v2.png" width="1792" height="896" alt="马斯克一手资料档案封面：原始记录、视频、监管文件与采访" decoding="async" />
+            <figcaption><span>ARCHIVE COVER</span><p>从原话、完整活动到正式文件：每一条都应能回到原始入口。</p></figcaption>
+          </figure>
+          <aside className="archive-ledger" aria-label="资料库概览">
+            <div className="ledger-topline"><span>ARCHIVE STATUS</span><strong>持续扩充</strong></div>
+            <div className="ledger-total"><strong>{sources.length}</strong><span>已建档可点击资料</span></div>
+            <div className="ledger-metrics">
+              <div><strong>{directSourceCount}</strong><span>本人直接材料</span></div>
+              <div><strong>{actionRecordCount}</strong><span>行动 / 法律记录</span></div>
+              <div><strong>{stableSourceCount}</strong><span>稳定直达入口</span></div>
+            </div>
+            <div className="ledger-rule"><span>分层规则</span><p>“马斯克说过”与“他所领导的公司做过”永远不混为同一类证据。</p></div>
+          </aside>
+        </div>
       </section>
 
       <section className="page-section archive-introduction">
@@ -269,18 +304,24 @@ export function ResearchApp() {
           <div className="filter-row">
             <span>按机构</span>
             <div className="filter-pills" role="group" aria-label="按机构筛选">
-              {organizations.map((organization) => <button key={organization} className={sourceOrganization === organization ? "is-active" : ""} onClick={() => setSourceOrganization(organization)}>{organization}</button>)}
+              {organizations.map((organization) => <button key={organization} aria-pressed={sourceOrganization === organization} className={sourceOrganization === organization ? "is-active" : ""} onClick={() => setSourceOrganization(organization)}>{organization}</button>)}
             </div>
           </div>
           <div className="filter-row filter-row-bottom">
             <span>按材料身份</span>
             <div className="filter-pills" role="group" aria-label="按资料身份筛选">
-              {(["全部材料", "马斯克本人直接材料", "公司 / 监管行动记录"] as RoleFilter[]).map((role) => <button key={role} className={roleFilter === role ? "is-active" : ""} onClick={() => setRoleFilter(role)}>{role}</button>)}
-              <button className={stableOnly ? "is-active stable-filter" : "stable-filter"} onClick={() => setStableOnly(!stableOnly)}>{stableOnly ? "✓ 仅稳定直达" : "仅稳定直达"}</button>
+              {(["全部材料", "马斯克本人直接材料", "公司 / 监管行动记录"] as RoleFilter[]).map((role) => <button key={role} aria-pressed={roleFilter === role} className={roleFilter === role ? "is-active" : ""} onClick={() => setRoleFilter(role)}>{role}</button>)}
+              <button aria-pressed={stableOnly} className={stableOnly ? "is-active stable-filter" : "stable-filter"} onClick={() => setStableOnly(!stableOnly)}>{stableOnly ? "✓ 仅稳定直达" : "仅稳定直达"}</button>
             </div>
           </div>
+          <div className="evidence-legend" aria-label="证据等级说明">
+            <span>证据等级</span>
+            <div><EvidenceBadge level="S" /><small>原始 / 正式材料</small></div>
+            <div><EvidenceBadge level="A" /><small>完整采访或转录</small></div>
+            <div><EvidenceBadge level="C" /><small>辅助定位材料</small></div>
+          </div>
         </div>
-        <div className="library-result-line"><p>显示 <strong>{filteredSources.length}</strong> / {sources.length} 条资料</p><span>资料卡会明确标示原话、行动记录、完整度与访问状态。</span></div>
+        <div className="library-result-line" aria-live="polite" aria-atomic="true"><p>显示 <strong>{filteredSources.length}</strong> / {sources.length} 条资料</p><span>资料卡会明确标示原话、行动记录、完整度与访问状态。</span></div>
         <div className="source-card-grid archive-source-grid">
           {filteredSources.map((source) => {
             const actionRecord = !isDirectMuskMaterial(source);
@@ -291,7 +332,7 @@ export function ResearchApp() {
                 <h2>{source.title}</h2>
                 <p>{source.context}</p>
                 <div className="source-card-meta archive-source-meta"><span>{source.sourceFormat}</span><span>{source.completeness}</span><span>{source.access}</span></div>
-                <div className="card-actions"><button className="text-button" onClick={() => setSelectedSourceId(source.id)}>资料说明 ↗</button><a href={source.primaryUrl} target="_blank" rel="noreferrer">打开原始资料 ↗</a></div>
+                <div className="card-actions"><button className="text-button" onClick={() => openSource(source.id)}>资料说明 ↗</button><a href={source.primaryUrl} target="_blank" rel="noreferrer">打开原始资料 ↗</a></div>
               </article>
             );
           })}
@@ -335,7 +376,7 @@ export function ResearchApp() {
                     <div><span>后续节点</span><p>{item.action}</p></div>
                     <div><span>研究边界</span><p>{item.outcome}</p></div>
                   </div>
-                  <button className="source-reference" onClick={() => setSelectedSourceId(source.id)}><span>查看对应资料</span><small>{sourceLabel(source)}</small><span aria-hidden="true">→</span></button>
+                  <button className="source-reference" onClick={() => openSource(source.id)}><span>查看对应资料</span><small>{sourceLabel(source)}</small><span aria-hidden="true">→</span></button>
                 </div>
               </article>
             );
@@ -390,7 +431,7 @@ export function ResearchApp() {
         <p>以公开可核验材料为起点；把原话、行动记录、外部追问与未知边界分开保存。</p>
         <button className="footer-link" onClick={() => navigate("method")}>阅读研究方法与边界 ↗</button>
       </footer>
-      {selectedSource && <SourceDialog source={selectedSource} onClose={() => setSelectedSourceId(null)} />}
+      {selectedSource && <SourceDialog source={selectedSource} onClose={closeSource} />}
     </main>
   );
 }
