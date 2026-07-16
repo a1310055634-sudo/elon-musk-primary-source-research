@@ -348,10 +348,16 @@ footer p { margin: 0; color: #a9c0c4; font-size: 13px; text-align: center; }
 
 /* Source-archive expansion */
 .archive-header { background: rgba(248, 249, 245, .92); }
-.archive-hero { display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(320px, .62fr); gap: 72px; align-items: end; padding: 112px max(5vw, calc((100vw - 1200px) / 2)) 86px; background: radial-gradient(circle at 92% 17%, rgba(85, 187, 168, .22), transparent 24%), radial-gradient(circle at 68% 78%, rgba(107, 146, 194, .12), transparent 31%), linear-gradient(140deg, #fbfcf8 0%, #edf4f1 100%); border-bottom: 1px solid var(--line); }
+.archive-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); gap: 54px; align-items: center; padding: 92px max(5vw, calc((100vw - 1200px) / 2)) 82px; background: radial-gradient(circle at 92% 17%, rgba(85, 187, 168, .22), transparent 24%), radial-gradient(circle at 68% 78%, rgba(107, 146, 194, .12), transparent 31%), linear-gradient(140deg, #fbfcf8 0%, #edf4f1 100%); border-bottom: 1px solid var(--line); }
 .archive-hero-copy { min-width: 0; }
 .archive-hero-copy h1 { max-width: 920px; }
 .hero-microcopy { max-width: 690px; margin: 18px 0 0; color: #72848b; font-size: 12px; line-height: 1.7; }
+.archive-hero-side { display: grid; width: 100%; max-width: 540px; gap: 14px; justify-self: end; }
+.archive-cover { margin: 0; overflow: hidden; background: #0c2535; border: 1px solid #284b58; border-radius: 10px; box-shadow: 0 22px 48px rgba(16, 40, 56, .16); }
+.archive-cover img { display: block; width: 100%; height: auto; }
+.archive-cover figcaption { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; padding: 12px 15px 14px; color: #d9ece8; background: #0c2535; border-top: 1px solid rgba(155, 216, 207, .22); }
+.archive-cover figcaption span { padding-top: 2px; color: #76d5c9; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.archive-cover figcaption p { margin: 0; color: #bfd5d3; font-size: 12px; line-height: 1.55; }
 .archive-ledger { align-self: stretch; padding: 28px; color: #edf7f4; background: linear-gradient(150deg, #102838, #0b5354); border: 1px solid #245264; border-radius: 9px; box-shadow: var(--shadow); }
 .ledger-topline { display: flex; justify-content: space-between; gap: 14px; color: #9bd8cf; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
 .ledger-topline strong { color: #dff4ee; font-size: 10px; }
@@ -398,6 +404,10 @@ footer p { margin: 0; color: #a9c0c4; font-size: 13px; text-align: center; }
 .filter-row-bottom { padding-top: 17px; border-top: 1px solid #d0dfdc; }
 .filter-pills .stable-filter { color: #285a5b; border-color: #71aaa1; }
 .filter-pills .stable-filter.is-active { color: #fff; background: var(--teal-deep); border-color: var(--teal-deep); }
+.evidence-legend { display: flex; flex-wrap: wrap; gap: 9px 15px; align-items: center; padding-top: 17px; border-top: 1px solid #d0dfdc; }
+.evidence-legend > span { color: #526b76; font-size: 11px; font-weight: 900; }
+.evidence-legend > div { display: inline-flex; gap: 6px; align-items: center; }
+.evidence-legend small { color: #627784; font-size: 11px; }
 .library-result-line { display: flex; justify-content: space-between; gap: 18px; align-items: baseline; margin: 25px 0 14px; }
 .library-result-line p { margin: 0; color: var(--muted); font-size: 13px; }
 .library-result-line strong { color: var(--teal-deep); font-size: 18px; }
@@ -427,7 +437,8 @@ footer p { margin: 0; color: #a9c0c4; font-size: 13px; text-align: center; }
 
 @media (max-width: 980px) {
   .archive-hero { grid-template-columns: 1fr; gap: 35px; }
-  .archive-ledger { max-width: 620px; }
+  .archive-hero-side { max-width: 620px; justify-self: start; }
+  .archive-ledger { max-width: none; }
   .archive-source-grid { grid-template-columns: repeat(2, 1fr); }
   .archive-meta-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -450,4 +461,10 @@ footer p { margin: 0; color: #a9c0c4; font-size: 13px; text-align: center; }
   .archive-meta-grid { grid-template-columns: 1fr; }
   .ledger-metrics { grid-template-columns: 1fr 1fr 1fr; }
   .ledger-metrics > div { min-height: 76px; padding: 11px 8px; }
+}
+
+@media (max-width: 430px) {
+  .archive-cover figcaption { grid-template-columns: 1fr; gap: 5px; }
+  .ledger-metrics { grid-template-columns: repeat(2, 1fr); }
+  .ledger-metrics > div:last-child { grid-column: 1 / -1; }
 }
